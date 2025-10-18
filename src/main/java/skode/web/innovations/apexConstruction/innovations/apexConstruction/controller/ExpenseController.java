@@ -93,16 +93,16 @@ public class ExpenseController {
     }
 
     // ✏️ Update an existing expense
-    @PutMapping("/update/{id}")
+    @PutMapping(value = "/update/{id}", consumes = {"multipart/form-data"})
     public ResponseEntity<Expense> updateExpense(
             @PathVariable Long id,
-            @RequestBody ExpenseRequest request) {
+            @ModelAttribute ExpenseRequest request, @RequestParam(value = "billFile", required = false) MultipartFile billFile) throws IOException {
 
         Expense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Expense not found"));
 
         expense.setAmount(request.getAmount());
-        expense.setGstIncluded(request.isGstIncluded());
+        expense.setGstRequired(request.getGstRequired());
         expense.setExpenseDate(LocalDate.parse(request.getExpenseDate()));
         expense.setInvoiceNumber(request.getInvoiceNumber());
         expense.setVendor(request.getVendor());
@@ -125,6 +125,14 @@ public class ExpenseController {
                 .orElseThrow(() -> new RuntimeException("Subcategory not found")));
         expense.setPerson(personRepository.findById(request.getPersonId())
                 .orElseThrow(() -> new RuntimeException("Person not found")));
+
+        if (billFile != null && !billFile.isEmpty()) {
+            String uploadDir = "uploads/bills/";
+            Files.createDirectories(Paths.get(uploadDir));
+            String filePath = uploadDir + billFile.getOriginalFilename();
+            billFile.transferTo(new File(filePath));
+            expense.setBillPath(filePath);
+        }
 
         Expense updatedExpense = expenseRepository.save(expense);
         return ResponseEntity.ok(updatedExpense);
